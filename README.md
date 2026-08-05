@@ -4,10 +4,6 @@ This repository contains the full experimental pipeline behind the paper
 *"Explainable Per-Instance Algorithm Selection: Assessing the Reliability
 of Meta-Feature Attributions"* 
 
-It reproduces every number, table, and figure reported in the paper,
-starting from the raw [ASlib](https://www.coseal.net/aslib/) scenario
-data on GitHub, through model training, SHAP explainability, and
-statistical validation.
 
 ## Repository structure
 
@@ -19,14 +15,14 @@ statistical validation.
     ├── aslib_loader.py       # Step 1: download + parse ASlib scenarios
     ├── train_eval.py         # Step 2: train selectors, compute PAR10/accuracy
     ├── shap_analysis.py      # Step 3: SHAP explainability + stability metric
-    ├── statistical_tests.py  # Step 4: Friedman / Nemenyi / Wilcoxon + CD diagram
-    └── make_figures.py       # Step 5: regenerate Figures 1 and 2
+    └── statistical_tests.py  # Step 4: Friedman/Nemenyi/Wilcoxon + CD diagram
+
 
 ```
 
 Running the pipeline additionally produces `data/` (raw + processed ASlib
-scenario data) and `results/` (all CSV/PNG outputs referenced in the
-paper's tables and figures) in the working directory — these are not
+scenario data) and `results/` (all CSV outputs referenced in the
+paper's tables in the working directory — these are not
 version-controlled here since they are fully regenerable from the ASlib
 source and are already provided separately alongside this package for
 convenience.
@@ -71,10 +67,6 @@ python code/statistical_tests.py
 # -> results/{friedman_test,nemenyi_pvalues,average_ranks,wilcoxon_pairwise}.csv (Table 6)
 # -> results/critical_difference_diagram.png (Figure 3)
 
-# Step 5 — regenerate Figures 1 and 2 from the results above
-python code/make_figures.py
-# -> results/fig_performance_boxplot.png (Figure 1)
-# -> results/fig_shap_summary_combined.png (Figure 2)
 ```
 
 Each script also accepts `--data-root` / `--results-root` (or
@@ -93,7 +85,6 @@ TreeExplainer computation in `shap_analysis.py`).
 | `train_eval.py` | §3.3, §4.2, §5.1, §5.4 | Table 3 |
 | `shap_analysis.py` | §3.4, §3.5, §5.2, §5.3 | Table 4, Table 5, Figure 2 |
 | `statistical_tests.py` | §4.4, §5.4 | Table 6, Figure 3 |
-| `make_figures.py` | §5.1, §5.2 | Figure 1, Figure 2 |
 
 ## License / data provenance
 
