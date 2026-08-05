@@ -1,0 +1,11 @@
+feature,mean_abs_shap,scenario
+stats_table_count,0.03150328367973471,CSP-2010
+stats_branchingvars,0.022873176650148954,CSP-2010
+stats_varcount,0.02233606359061076,CSP-2010
+stats_var_discrete,0.02066029500917322,CSP-2010
+stats_arity_mean_normalised,0.01711011637301968,CSP-2010
+stats_cts_per_var_mean_normalised,0.015391712070159658,CSP-2010
+stats_conscount,0.014281143091418275,CSP-2010
+normalised_mean_degree,0.012805374392876845,CSP-2010
+normalised_width_of_ordering,0.011799667256384703,CSP-2010
+mean_degree,0.010812325850471692,CSP-2010
