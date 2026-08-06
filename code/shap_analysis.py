@@ -1,21 +1,21 @@
 """
 shap_analysis.py
 
-Paso 3 del diseño experimental: añade la capa de explicabilidad (SHAP) sobre el
-selector RandomForest ya validado en train_eval.py, y calcula la estabilidad de
-las atribuciones de importancia de meta-features entre los 10 folds de ASlib.
+Step 3 of the experimental design: adds the explainability layer (SHAP) on top of
+the RandomForest selector already validated in train_eval.py, and computes the
+stability of meta-feature importance attributions across the 10 ASlib folds.
 
-Requiere que aslib_loader.py ya se haya corrido (usa data/<escenario>/dataset.csv).
+Requires that aslib_loader.py has already been run (uses data/<scenario>/dataset.csv).
 
-Uso:
-    python shap_analysis.py                      # corre los 3 escenarios por defecto
-    python shap_analysis.py --scenario CSP-2010   # corre solo uno
+Usage:
+    python shap_analysis.py                      # run the 3 default scenarios
+    python shap_analysis.py --scenario CSP-2010   # run only one
 
-Salida (por escenario), en results/<escenario>/:
-    - shap_importance_by_fold.csv   importancia SHAP media |valor| por feature y fold
-    - shap_top_features.csv         top-10 features por importancia SHAP promedio (Tabla 4)
-    - stability.csv                 rho_stab: correlación de Spearman promedio entre folds (Tabla 5)
-    - shap_summary_plot.png         SHAP summary plot para el fold representativo (Figura 3)
+Output (per scenario), in results/<scenario>/:
+    - shap_importance_by_fold.csv   mean |SHAP| importance per feature and fold
+    - shap_top_features.csv         top-10 features by mean SHAP importance (Table 4)
+    - stability.csv                 rho_stab: mean Spearman correlation across folds (Table 5)
+    - shap_summary_plot.png         SHAP summary plot for the representative fold (Figure 3)
 """
 
 import argparse
@@ -41,30 +41,31 @@ TOP_K = 10
 
 def mean_abs_shap_per_feature(shap_values, feature_cols):
     """
-    Normaliza la salida de TreeExplainer (que varía de forma según binaria/
-    multiclase y versión de SHAP) a un vector de importancia por feature:
-    promedio de |SHAP| sobre instancias y, si aplica, sobre clases.
+    Normalizes TreeExplainer output (whose shape varies with binary/
+    multiclass classification and SHAP version) into a per-feature
+    importance vector: mean |SHAP| over instances and, if applicable,
+    over classes.
     """
     arr = np.asarray(shap_values.values) if hasattr(shap_values, "values") else np.asarray(shap_values)
 
     if isinstance(shap_values, list):
-        # Lista de arrays (n_samples, n_features), uno por clase
+        # List of arrays (n_samples, n_features), one per class
         stacked = np.stack([np.abs(a) for a in shap_values], axis=0)  # (n_classes, n_samples, n_features)
         importance = stacked.mean(axis=(0, 1))
     elif arr.ndim == 3:
-        # (n_samples, n_features, n_classes) -- shape típico en SHAP >= 0.4x para multiclase
+        # (n_samples, n_features, n_classes) -- typical shape in SHAP >= 0.4x for multiclass
         importance = np.abs(arr).mean(axis=(0, 2))
     else:
-        # (n_samples, n_features) -- caso binario
+        # (n_samples, n_features) -- binary case
         importance = np.abs(arr).mean(axis=0)
 
     assert importance.shape[0] == len(feature_cols), \
-        f"Dimensión de importancia ({importance.shape[0]}) no coincide con # features ({len(feature_cols)})"
+        f"Importance dimension ({importance.shape[0]}) does not match # features ({len(feature_cols)})"
     return importance
 
 
 def run_scenario(scenario: str, data_root: Path, results_root: Path):
-    print(f"[{scenario}] cargando dataset...")
+    print(f"[{scenario}] loading dataset...")
     dataset = pd.read_csv(data_root / scenario / "dataset.csv")
 
     algo_cols = [c for c in dataset.columns if c.startswith("perf__")]
@@ -73,7 +74,7 @@ def run_scenario(scenario: str, data_root: Path, results_root: Path):
 
     folds = sorted(dataset["cv_fold"].dropna().unique())
     importance_by_fold = {}
-    representative_shap = None  # guardamos uno para la Figura 3
+    representative_shap = None  # keep one for Figure 3
 
     for fold in folds:
         train_df = dataset[dataset["cv_fold"] != fold].reset_index(drop=True)
@@ -94,7 +95,7 @@ def run_scenario(scenario: str, data_root: Path, results_root: Path):
         model.fit(X_train_imp, y_train_enc)
 
         explainer = shap.TreeExplainer(model)
-        shap_values = explainer(X_test_imp)  # API moderna de shap (Explanation object)
+        shap_values = explainer(X_test_imp)  # modern shap API (Explanation object)
 
         importance = mean_abs_shap_per_feature(shap_values, feature_cols)
         importance_by_fold[int(fold)] = importance
@@ -102,24 +103,24 @@ def run_scenario(scenario: str, data_root: Path, results_root: Path):
         if representative_shap is None:
             representative_shap = (shap_values, X_test_imp, feature_cols, int(fold))
 
-        print(f"  fold {int(fold)}/{len(folds)} -> SHAP calculado")
+        print(f"  fold {int(fold)}/{len(folds)} -> SHAP computed")
 
-    # --- Tabla: importancia por feature y fold ---
+    # --- Table: importance per feature and fold ---
     imp_df = pd.DataFrame(importance_by_fold, index=feature_cols)
     imp_df.index.name = "feature"
     out_dir = results_root / scenario
     out_dir.mkdir(parents=True, exist_ok=True)
     imp_df.to_csv(out_dir / "shap_importance_by_fold.csv")
 
-    # --- Tabla 4: top-K features por importancia SHAP promedio ---
+    # --- Table 4: top-K features by mean SHAP importance ---
     mean_importance = imp_df.mean(axis=1).sort_values(ascending=False)
     top_features = mean_importance.head(TOP_K).reset_index()
     top_features.columns = ["feature", "mean_abs_shap"]
     top_features["scenario"] = scenario
     top_features.to_csv(out_dir / "shap_top_features.csv", index=False)
 
-    # --- Tabla 5: estabilidad (rho_stab) entre folds ---
-    # Ranking de features por importancia, por fold
+    # --- Table 5: stability (rho_stab) across folds ---
+    # Feature importance ranking, per fold
     rankings = imp_df.rank(ascending=False, axis=0)
     fold_ids = list(rankings.columns)
     pairwise_corrs = []
@@ -137,11 +138,11 @@ def run_scenario(scenario: str, data_root: Path, results_root: Path):
     }])
     stability_df.to_csv(out_dir / "stability.csv", index=False)
 
-    # --- Figura 3: SHAP summary plot para el fold representativo ---
+    # --- Figure 3: SHAP summary plot for the representative fold ---
     shap_values, X_test_imp, feat_cols, fold_id = representative_shap
     plt.figure()
     try:
-        # Si es multiclase, promediamos |SHAP| sobre clases para un summary plot legible
+        # If multiclass, average |SHAP| over classes for a readable summary plot
         vals = np.asarray(shap_values.values)
         if vals.ndim == 3:
             vals_for_plot = np.abs(vals).mean(axis=2)
@@ -162,7 +163,7 @@ def run_scenario(scenario: str, data_root: Path, results_root: Path):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Capa de explicabilidad SHAP + estabilidad de atribuciones")
+    parser = argparse.ArgumentParser(description="SHAP explainability layer + attribution stability")
     parser.add_argument("--scenario", type=str, default=None)
     parser.add_argument("--data-root", type=str, default="data")
     parser.add_argument("--results-root", type=str, default="results")
@@ -189,7 +190,7 @@ def main():
     if all_stab:
         pd.concat(all_stab, ignore_index=True).to_csv(
             results_root / "stability_all_scenarios.csv", index=False)
-        print("Resumen de estabilidad combinado -> results/stability_all_scenarios.csv")
+        print("Combined stability summary -> results/stability_all_scenarios.csv")
 
 
 if __name__ == "__main__":

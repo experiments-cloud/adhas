@@ -1,20 +1,20 @@
 """
 train_eval.py
 
-Paso 2 del diseño experimental: entrena selectores per-instance (Random Forest,
-XGBoost) sobre los folds oficiales de ASlib y los compara contra los baselines
-estándar (Single Best Solver, Virtual Best Solver/Oracle, selección aleatoria).
+Step 2 of the experimental design: trains per-instance selectors (Random Forest,
+XGBoost) over the official ASlib folds and compares them against the standard
+baselines (Single Best Solver, Virtual Best Solver/Oracle, random selection).
 
-Requiere que aslib_loader.py ya se haya corrido (usa data/<escenario>/dataset.csv
-y data/<escenario>/raw/description.txt).
+Requires that aslib_loader.py has already been run (uses data/<scenario>/dataset.csv
+and data/<scenario>/raw/description.txt).
 
-Uso:
-    python train_eval.py                      # corre los 3 escenarios por defecto
-    python train_eval.py --scenario CSP-2010   # corre solo uno
+Usage:
+    python train_eval.py                      # run the 3 default scenarios
+    python train_eval.py --scenario CSP-2010   # run only one
 
-Salida (por escenario), en results/<escenario>/:
-    - fold_results.csv     una fila por (fold, método) con accuracy y PAR10
-    - summary.csv          promedio +/- std por método, listo para la Tabla 2 del paper
+Output (per scenario), in results/<scenario>/:
+    - fold_results.csv     one row per (fold, method) with accuracy and PAR10
+    - summary.csv          mean +/- std per method, ready for Table 2 of the paper
 """
 
 import argparse
@@ -34,17 +34,17 @@ RANDOM_STATE = 42
 
 
 def get_cutoff_time(scenario: str, data_root: Path) -> float:
-    """Lee algorithm_cutoff_time desde description.txt (cacheado por aslib_loader.py)."""
+    """Reads algorithm_cutoff_time from description.txt (cached by aslib_loader.py)."""
     desc_path = data_root / scenario / "raw" / "description.txt"
     text = desc_path.read_text(encoding="utf-8", errors="replace")
     m = re.search(r"algorithm_cutoff_time:\s*([0-9.]+)", text)
     if not m:
-        raise ValueError(f"No se encontró algorithm_cutoff_time en {desc_path}")
+        raise ValueError(f"algorithm_cutoff_time not found in {desc_path}")
     return float(m.group(1))
 
 
 def par10(runtimes: np.ndarray, cutoff: float) -> np.ndarray:
-    """Aplica la transformación PAR10 estándar: runtime si <= cutoff, 10*cutoff si no."""
+    """Applies the standard PAR10 transformation: runtime if <= cutoff, 10*cutoff otherwise."""
     r = runtimes.copy().astype(float)
     timeout_mask = (r >= cutoff) | np.isnan(r)
     r[timeout_mask] = 10.0 * cutoff
@@ -52,7 +52,7 @@ def par10(runtimes: np.ndarray, cutoff: float) -> np.ndarray:
 
 
 def evaluate_fold(train_df, test_df, feature_cols, algo_cols, cutoff, models):
-    """Entrena y evalúa todos los métodos (modelos + baselines) para un fold."""
+    """Trains and evaluates all methods (models + baselines) for one fold."""
     X_train = train_df[feature_cols].values
     X_test = test_df[feature_cols].values
     y_train = train_df["best_algorithm"].values
@@ -64,7 +64,7 @@ def evaluate_fold(train_df, test_df, feature_cols, algo_cols, cutoff, models):
 
     results = []
 
-    # --- Baseline: Single Best Solver (elegido con datos de entrenamiento) ---
+    # --- Baseline: Single Best Solver (chosen using training data) ---
     train_perf = train_df[algo_cols]
     train_par10 = train_perf.apply(lambda col: par10(col.values, cutoff), axis=0)
     sbs_algo = train_par10.mean(axis=0).idxmin()
@@ -85,7 +85,7 @@ def evaluate_fold(train_df, test_df, feature_cols, algo_cols, cutoff, models):
         "par10_mean": par10(vbs_runtimes, cutoff).mean(),
     })
 
-    # --- Baseline: selección aleatoria (valor esperado = promedio entre algoritmos) ---
+    # --- Baseline: random selection (expected value = average over algorithms) ---
     random_par10 = par10(test_perf.flatten(), cutoff).reshape(test_perf.shape).mean(axis=1)
     results.append({
         "method": "Random",
@@ -93,7 +93,7 @@ def evaluate_fold(train_df, test_df, feature_cols, algo_cols, cutoff, models):
         "par10_mean": random_par10.mean(),
     })
 
-    # --- Modelos de selección ML ---
+    # --- ML selection models ---
     label_enc = LabelEncoder()
     y_train_enc = label_enc.fit_transform(y_train)
 
@@ -116,7 +116,7 @@ def evaluate_fold(train_df, test_df, feature_cols, algo_cols, cutoff, models):
 
 
 def run_scenario(scenario: str, data_root: Path, results_root: Path):
-    print(f"[{scenario}] cargando dataset...")
+    print(f"[{scenario}] loading dataset...")
     dataset = pd.read_csv(data_root / scenario / "dataset.csv")
     cutoff = get_cutoff_time(scenario, data_root)
 
@@ -145,7 +145,7 @@ def run_scenario(scenario: str, data_root: Path, results_root: Path):
             r["fold"] = int(fold)
             r["scenario"] = scenario
         all_results.extend(fold_results)
-        print(f"  fold {int(fold)}/{len(folds)} listo")
+        print(f"  fold {int(fold)}/{len(folds)} done")
 
     fold_df = pd.DataFrame(all_results)
     out_dir = results_root / scenario
@@ -168,7 +168,7 @@ def run_scenario(scenario: str, data_root: Path, results_root: Path):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Entrena y evalúa selectores per-instance sobre ASlib")
+    parser = argparse.ArgumentParser(description="Train and evaluate per-instance selectors on ASlib")
     parser.add_argument("--scenario", type=str, default=None)
     parser.add_argument("--data-root", type=str, default="data")
     parser.add_argument("--results-root", type=str, default="results")
@@ -191,7 +191,7 @@ def main():
     if all_summaries:
         combined = pd.concat(all_summaries, ignore_index=True)
         combined.to_csv(results_root / "summary_all_scenarios.csv", index=False)
-        print(f"Resumen combinado -> {results_root}/summary_all_scenarios.csv")
+        print(f"Combined summary -> {results_root}/summary_all_scenarios.csv")
 
 
 if __name__ == "__main__":
