@@ -1,18 +1,6 @@
 """
 stability_topk_and_cost.py
 
-Two camera-ready additions bundled together since both reuse the same
-per-fold SHAP computation:
-
-  1. Top-k Jaccard stability (response to reviewer Comment #3): the
-     mean pairwise Jaccard overlap between each pair of folds' top-5
-     and top-10 most important features, complementing the aggregate
-     rho_stab already computed by shap_analysis.py.
-
-  2. SHAP computational cost (response to reviewer Comment #1, RQ1
-     reformulation): wall-clock time for TreeExplainer vs. plain
-     prediction, on one representative fold per scenario.
-
 Requires that shap_analysis.py has already produced
 results/<scenario>/shap_importance_by_fold.csv (used for the Jaccard
 computation) and that aslib_loader.py has produced
