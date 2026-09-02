@@ -1,13 +1,6 @@
 """
 multiseed_analysis.py
 
-Camera-ready addition (response to reviewer Comment #7): repeats
-train_eval.py's training with multiple random seeds per fold to (a)
-separate data-partition variability from training stochasticity, and
-(b) run a proper TOST equivalence test on the Random Forest vs.
-XGBoost comparison, replacing the earlier "failed to reject the null"
-framing with a formal equivalence bound.
-
 Requires that aslib_loader.py has already been run (uses
 data/<scenario>/dataset.csv) and that train_eval.py has already
 produced results/<scenario>/fold_results.csv (used for the SBS values,
