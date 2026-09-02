@@ -15,17 +15,18 @@ of Meta-Feature Attributions"*
     ├── aslib_loader.py       # Step 1: download + parse ASlib scenarios
     ├── train_eval.py         # Step 2: train selectors, compute PAR10/accuracy
     ├── shap_analysis.py      # Step 3: SHAP explainability + stability metric
-    └── statistical_tests.py  # Step 4: Friedman/Nemenyi/Wilcoxon + CD diagram
-
+    ├── statistical_tests.py  # Step 4: Friedman / Nemenyi / Wilcoxon + CD (n=30)                                   
+    ├── multiseed_analysis.py # Step 5: 3-seed replication + TOST equivalence
+    │                                        + conservative 3-block Friedman
+    └── stability_topk_and_cost.py # Step 6: top-k Jaccard stability + SHAP
+                                             computational cost (Table 6)
 
 ```
 
-Running the pipeline additionally produces `data/` (raw + processed ASlib
-scenario data) and `results/` (all CSV outputs referenced in the
-paper's tables in the working directory — these are not
-version-controlled here since they are fully regenerable from the ASlib
-source and are already provided separately alongside this package for
-convenience.
+Running the pipeline additionally produces `data/` (raw + processed
+ASlib scenario data) and `results/` (all CSV/PNG outputs referenced in
+the paper's tables and figures) in the working directory — these are
+regenerable from the ASlib source and are not version-controlled here.
 
 ## Setup
 
@@ -48,43 +49,49 @@ root** (not from inside `code/`):
 ```bash
 # Step 1 — download and parse the 3 ASlib scenarios used in the paper
 python code/aslib_loader.py
-# -> data/<scenario>/dataset.csv, data/<scenario>/raw/*.arff
 
 # Step 2 — train Random Forest / XGBoost selectors, compute PAR10, accuracy,
-#          and the SBS / VBS / Random baselines (10-fold CV, per Section 4.1)
+#          and the SBS / VBS / Random baselines (10-fold CV, single seed)
 python code/train_eval.py
-# -> results/<scenario>/{fold_results,summary}.csv
-# -> results/summary_all_scenarios.csv  (Table 3)
+# -> results/summary_all_scenarios.csv
 
 # Step 3 — SHAP explainability layer + rho_stab cross-fold stability metric
 python code/shap_analysis.py
-# -> results/<scenario>/{shap_importance_by_fold,shap_top_features,stability}.csv
-# -> results/<scenario>/shap_summary_plot.png
-# -> results/{shap_top_features_all_scenarios,stability_all_scenarios}.csv (Tables 4-5)
+# -> results/shap_top_features_all_scenarios.csv, stability_all_scenarios.csv
 
-# Step 4 — Friedman / Nemenyi / Wilcoxon tests + critical difference diagram
+# Step 4 — Friedman / Nemenyi / Wilcoxon tests + critical difference diagram (n=30)
 python code/statistical_tests.py
-# -> results/{friedman_test,nemenyi_pvalues,average_ranks,wilcoxon_pairwise}.csv (Table 6)
-# -> results/critical_difference_diagram.png (Figure 3)
+# -> results/friedman_test.csv, nemenyi_pvalues.csv, average_ranks.csv
+
+# Step 5 — 3-seed replication, TOST equivalence test, 3-block Friedman
+#          (retraining; SAT12-ALL is slow, ~3 min per fold range)
+python code/multiseed_analysis.py --scenario CSP-2010
+python code/multiseed_analysis.py --scenario QBF-2011
+python code/multiseed_analysis.py --scenario SAT12-ALL
+python code/multiseed_analysis.py --combine
+# -> results/table3_multiseed_std.csv (Table 3)
+# -> results/multiseed_statistical_tests.csv (Section 5.4 "Seed sensitivity")
+# -> results/friedman_3block.csv (Section 6, conservative check)
+
+# Step 6 — top-k Jaccard stability (Table 5) + SHAP computational cost (Table 6)
+python code/stability_topk_and_cost.py
+# -> results/topk_jaccard_stability.csv, shap_computational_cost.csv
 
 ```
 
-Each script also accepts `--data-root` / `--results-root` (or
-`--scenario NAME` to run a single scenario) if you prefer a different
-layout — see `python code/<script>.py --help`.
-
-Total runtime: a few minutes on a laptop CPU (SAT12-ALL, with 31
-algorithms and 115 features, is the slowest step due to per-fold
-TreeExplainer computation in `shap_analysis.py`).
+Each script also accepts `--data-root` / `--results-root` if you prefer
+a different layout — see `python code/<script>.py --help`.
 
 ## Mapping to the paper
 
 | Script | Paper section(s) | Key outputs |
 |---|---|---|
 | `aslib_loader.py` | §4.1 (Benchmarks) | Table 2 |
-| `train_eval.py` | §3.3, §4.2, §5.1, §5.4 | Table 3 |
-| `shap_analysis.py` | §3.4, §3.5, §5.2, §5.3 | Table 4, Table 5, Figure 2 |
-| `statistical_tests.py` | §4.4, §5.4 | Table 6, Figure 3 |
+| `train_eval.py` | §3.3, §4.2, §5.1 | Table 3 (single-seed baseline) |
+| `shap_analysis.py` | §3.4, §3.5, §5.2, §5.3 | Table 4, Figures 2-4 (raw SHAP) |
+| `statistical_tests.py` | §4.4, §5.4 | Table 7 ($n=30$), Figure 3 |
+| `multiseed_analysis.py` | §5.4 ("Seed sensitivity"), §6 | Table 3 (final, multi-seed), TOST result, 3-block Friedman |
+| `stability_topk_and_cost.py` | §5.3, §5.4 (RQ1) | Table 5 (Jaccard@5/@10), Table 6 (computational cost) |
 
 ## License / data provenance
 
